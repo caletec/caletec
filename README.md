@@ -1,2 +1,2 @@
-git clone https://github.com/seu-usuario/seu-repositorio.git
+## ESSE É O SITE CALETEC
 
