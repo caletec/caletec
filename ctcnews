@@ -1,0 +1,81 @@
+const API_KEY = "9ef076f9aeabe6347d79011ea90c4e00"; // Substitua pela sua chave da GNews API
+const SERVER_UPLOAD_URL = "https://ctcnews.vercel.app/"; // Seu servidor de upload
+
+async function buscarNoticias() {
+    try {
+        let response = await fetch(`https://gnews.io/api/v4/top-headlines?category=general&lang=pt&country=br&max=5&apikey=${API_KEY}`);
+        let data = await response.json();
+
+        if (!data.articles || data.articles.length === 0) {
+            console.log("Nenhuma notícia encontrada.");
+            return;
+        }
+
+        for (let artigo of data.articles) {
+            let titulo = artigo.title;
+            let descricao = artigo.description || "Sem descrição";
+            let link = artigo.url;
+            let imagemUrl = artigo.image;
+            let videoUrl = artigo.video || null; // Nem sempre há vídeos
+
+            console.log(`Baixando: ${titulo}`);
+
+            // Baixar e fazer upload da imagem
+            let imagemUpload = imagemUrl ? await baixarArquivo(imagemUrl, "imagem") : null;
+
+            // Baixar e fazer upload do vídeo (se houver)
+            let videoUpload = videoUrl ? await baixarArquivo(videoUrl, "video") : null;
+
+            // Enviar tudo para o servidor
+            await enviarParaServidor({
+                titulo,
+                descricao,
+                link,
+                imagem: imagemUpload,
+                video: videoUpload
+            });
+        }
+    } catch (error) {
+        console.error("Erro ao buscar notícias:", error);
+    }
+}
+
+async function baixarArquivo(url, tipo) {
+    try {
+        let response = await fetch(url);
+        let blob = await response.blob();
+        let formData = new FormData();
+        formData.append(tipo, blob, `${tipo}.${blob.type.split("/")[1]}`);
+
+        let uploadResponse = await fetch(SERVER_UPLOAD_URL, {
+            method: "POST",
+            body: formData
+        });
+
+        let result = await uploadResponse.json();
+        return result.url; // Retorna a URL do arquivo no servidor
+    } catch (error) {
+        console.error(`Erro ao baixar ${tipo}:`, error);
+        return null;
+    }
+}
+
+async function enviarParaServidor(dados) {
+    try {
+        let response = await fetch(SERVER_UPLOAD_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(dados)
+        });
+
+        let resultado = await response.json();
+        console.log("Notícia enviada com sucesso:", resultado);
+    } catch (error) {
+        console.error("Erro ao enviar notícia:", error);
+    }
+}
+
+// Executa automaticamente ao carregar a página
+buscarNoticias();
